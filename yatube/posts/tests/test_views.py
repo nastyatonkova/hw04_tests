@@ -9,6 +9,8 @@ from ..models import Group, Post
 User = get_user_model()
 
 TESTING_ATTEMPTS = 13
+OTHER_GROUP_SLUG = 'other-test-group'
+OTHER_GROUP_URL = reverse('posts:group_list', args=[OTHER_GROUP_SLUG])
 
 
 class PostPagesTests(TestCase):
@@ -17,6 +19,7 @@ class PostPagesTests(TestCase):
         super().setUpClass()
 
     def setUp(self):
+        self.guest_client = Client()
         self.user = User.objects.create_user(username='auth')
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
@@ -100,6 +103,8 @@ class PostPagesTests(TestCase):
             with self.subTest(value=value):
                 form_field = response.context.get('form').fields.get(value)
                 self.assertIsInstance(form_field, expected)
+        is_edit = response.context.get('is_edit')
+        self.assertEqual(is_edit, False)
 
     def test_post_edit_pages_show_correct_context(self):
         """Template create_post gives form to edit post."""
@@ -116,6 +121,8 @@ class PostPagesTests(TestCase):
             with self.subTest(value=value):
                 form_field = response.context.get('form').fields.get(value)
                 self.assertIsInstance(form_field, expected)
+        is_edit = response.context.get('is_edit')
+        self.assertEqual(is_edit, True)
 
     def test_post_show_correct_text(self):
         """Additional check of first post text appering in the right group."""
@@ -146,6 +153,16 @@ class PostPagesTests(TestCase):
                 response = self.authorized_client.get(value)
                 first_object = response.context['page_obj'][0]
                 self.assertEqual(first_object.id, expected)
+
+    def test_new_post_do_not_view_other_group(self):
+        """New post will not appear in other group."""
+        Group.objects.create(
+            title='Другой заголовок',
+            slug=OTHER_GROUP_SLUG,
+            description='Другое тестовое описание',
+        )
+        response = self.authorized_client.get(OTHER_GROUP_URL)
+        self.assertNotIn(self.post, response.context['page_obj'])
 
 
 class PaginatorViewsTest(TestCase):

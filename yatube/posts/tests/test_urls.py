@@ -2,10 +2,15 @@ from http import HTTPStatus
 
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
+from django.urls import reverse
 
 from ..models import Group, Post
 
 User = get_user_model()
+
+REDIRECT_LOGIN_CREATE = '/auth/login/?next=/create/'
+REDIRECT_LOGIN_EDIT = '/auth/login/?next=/posts/1/edit/'
+REDIRECT_POST_DETAIL = '/posts/1/'
 
 
 class PostURLTests(TestCase):
@@ -14,9 +19,13 @@ class PostURLTests(TestCase):
         super().setUpClass()
 
     def setUp(self):
+        self.guest_client = Client()
         self.user = User.objects.create_user(username='auth')
+        self.user2 = User.objects.create_user(username='not_auth')
         self.authorized_client = Client()
+        self.authorized_client2 = Client()
         self.authorized_client.force_login(self.user)
+        self.authorized_client2.force_login(self.user2)
         self.group = Group.objects.create(
             title='Test group',
             slug='test-slug',
@@ -40,7 +49,7 @@ class PostURLTests(TestCase):
         }
         for page, expected_status in page_url_names.items():
             with self.subTest(page=page):
-                response = self.client.get(page).status_code
+                response = self.guest_client.get(page).status_code
                 self.assertEqual(response, expected_status)
 
     def test_create_url_exists_at_desired_location(self):
@@ -71,3 +80,16 @@ class PostURLTests(TestCase):
         """Page /edit/ uses correct HTML create_post template."""
         response = self.authorized_client.get(f'/posts/{self.post.id}/edit/')
         self.assertTemplateUsed(response, 'posts/create_post.html')
+
+    def test_urls_redirect(self):
+        """URL redirects user on right page."""
+        client_url_redirect = [
+            [self.guest_client, reverse(
+                'posts:post_create'), REDIRECT_LOGIN_CREATE],
+            [self.guest_client, '/posts/1/edit/', REDIRECT_LOGIN_EDIT],
+            [self.authorized_client2, '/posts/1/edit/', REDIRECT_POST_DETAIL]
+        ]
+        for client, url, redirect_url in client_url_redirect:
+            with self.subTest(url=url):
+                self.assertRedirects(
+                    client.get(url, follow=True), redirect_url)
