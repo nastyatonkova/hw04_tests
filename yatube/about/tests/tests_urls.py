@@ -18,14 +18,3 @@ class StaticURLTests(TestCase):
             with self.subTest(page=page):
                 response = self.unauthorised_client.get(page).status_code
                 self.assertEqual(response, expected_status)
-
-    def test_pages_uses_correct_template(self):
-        """URL-adresses tech and author use correct HTML-templates."""
-        templates_page_names = {
-            'about/author.html': reverse('about:author'),
-            'about/tech.html': reverse('about:tech'),
-        }
-        for template, reverse_name in templates_page_names.items():
-            with self.subTest(template=template):
-                response = self.unauthorised_client.get(reverse_name)
-                self.assertTemplateUsed(response, template)

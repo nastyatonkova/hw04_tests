@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/2.2/ref/settings/
 """
 
 import os
+# from pickle import TRUE
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -23,7 +24,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = '+!7e5h28l=l&lq*%aa(q1c!@73)nlcfa!&&l^*13(x!we)&aj3'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = [
     'localhost',
@@ -148,3 +149,8 @@ EMAIL_FILE_PATH = os.path.join(BASE_DIR, 'sent_emails')
 # Paginator
 
 POSTS_IN_PAGINATOR = 10
+
+
+# Function for Error403
+
+CSRF_FAILURE_VIEW = 'core.views.csrf_failure'
