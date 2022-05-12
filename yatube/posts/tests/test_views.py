@@ -1,21 +1,26 @@
 from django import forms
+import tempfile
+import shutil
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ..models import Group, Post
 
 User = get_user_model()
+TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
 
 TESTING_ATTEMPTS = 13
 OTHER_GROUP_SLUG = 'other-test-group'
 OTHER_GROUP_URL = reverse('posts:group_list', args=[OTHER_GROUP_SLUG])
 
 
+@override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
 class PostPagesTests(TestCase):
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(self):
         super().setUpClass()
 
     def setUp(self):
@@ -28,11 +33,30 @@ class PostPagesTests(TestCase):
             slug='test-slug',
             description='Test description',
         )
+        image = (
+            b'\x47\x49\x46\x38\x39\x61\x02\x00'
+            b'\x01\x00\x80\x00\x00\x00\x00\x00'
+            b'\xFF\xFF\xFF\x21\xF9\x04\x00\x00'
+            b'\x00\x00\x00\x2C\x00\x00\x00\x00'
+            b'\x02\x00\x01\x00\x00\x02\x02\x0C'
+            b'\x0A\x00\x3B'
+        )
+        uploaded = SimpleUploadedFile(
+            name='test.jpg',
+            content=image,
+            content_type='image/jpg'
+        )
         self.post = Post.objects.create(
             text='Test text',
             author=self.user,
-            group=self.group
+            group=self.group,
+            image=uploaded
         )
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
 
     def test_pages_uses_correct_template(self):
         """URL-adress uses correct HTML-template."""
@@ -61,6 +85,29 @@ class PostPagesTests(TestCase):
                     get(reverse('posts:post_edit',
                         kwargs={'post_id': self.post.id})))
         self.assertTemplateUsed(response, 'posts/create_post.html')
+
+    def test_post_show_picture(self):
+        """Check the image."""
+        templates_pages_names = {
+            reverse('posts:index'): self.post.image,
+            reverse('posts:group_list',
+                    kwargs={'slug': self.group.slug}): self.post.image,
+            reverse('posts:profile',
+                    kwargs={'username': self.user.username}): self.post.image,
+        }
+        for value, expected in templates_pages_names.items():
+            with self.subTest(value=value):
+                response = self.authorized_client.get(value)
+                first_object = response.context['page_obj'][0]
+                self.assertEqual(first_object.image, expected)
+
+    def test_post_show_picture_in_post(self):
+        """Check the image on post page."""
+        response = (self.authorized_client.
+                    get(reverse('posts:post_edit',
+                        kwargs={'post_id': self.post.id})))
+        post = response.context['required_post']
+        self.assertEqual(post.image, self.post.image)
 
     def test_group_list_page_show_correct_context(self):
         """Template group_list gives group list of the posts."""
@@ -98,6 +145,7 @@ class PostPagesTests(TestCase):
         form_fields = {
             'text': forms.fields.CharField,
             'group': forms.fields.ChoiceField,
+            'image': forms.fields.ImageField,
         }
         for value, expected in form_fields.items():
             with self.subTest(value=value):
@@ -116,6 +164,7 @@ class PostPagesTests(TestCase):
         form_fields = {
             'text': forms.fields.CharField,
             'group': forms.fields.ChoiceField,
+            'image': forms.fields.ImageField,
         }
         for value, expected in form_fields.items():
             with self.subTest(value=value):
