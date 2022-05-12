@@ -5,8 +5,8 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 
-from .forms import PostForm
-from .models import Group, Post, User
+from .forms import CommentForm, PostForm
+from .models import Comment, Group, Post, User
 
 PATH_TO_INDEX = os.path.join('posts', 'index.html')
 PATH_TO_GROUP_LIST = os.path.join('posts', 'group_list.html')
@@ -66,9 +66,13 @@ def post_detail(request, post_id):
     post = get_object_or_404(Post, pk=post_id)
     author = post.author
     posts_count = author.posts.count()
+    form = CommentForm(request.POST or None)
+    comment = Comment.objects.filter(post_id=post.id)
     context = {
         'post': post,
         'posts_count': posts_count,
+        'comments': comment,
+        'form': form,
     }
     return render(request, template, context)
 
@@ -106,3 +110,15 @@ def post_edit(request, post_id):
         return redirect('posts:post_detail', post_id=post_id)
     context = {'form': form, 'required_post': required_post, 'is_edit': True}
     return render(request, template, context)
+
+
+@login_required
+def add_comment(request, post_id):
+    post = get_object_or_404(Post, pk=post_id)
+    form = CommentForm(request.POST or None)
+    if form.is_valid():
+        comment = form.save(commit=False)
+        comment.author = request.user
+        comment.post = post
+        comment.save()
+    return redirect('posts:post_detail', post_id=post_id)
