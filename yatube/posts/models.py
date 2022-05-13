@@ -67,6 +67,7 @@ class Post(models.Model):
 
 
 class Comment(models.Model):
+    """Class for creating comments."""
     post = models.ForeignKey(
         Post,
         on_delete=models.CASCADE,
@@ -91,6 +92,7 @@ class Comment(models.Model):
 
 
 class Follow(models.Model):
+    """Class for following authors."""
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
